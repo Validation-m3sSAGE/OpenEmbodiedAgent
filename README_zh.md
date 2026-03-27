@@ -29,6 +29,28 @@ OEA 采用**万物皆 Markdown** (State-as-a-File)的协议矩阵，原生支持
 *   🎮 **仿真环境闭环**: 内置轻量级仿真支持，无需真实硬件即可验证从自然语言指令到物理状态改变的全链路。
 *   🗺️ **语义导航与感知**: 内置 `SemanticNavigationTool` 和 `PerceptionService`，支持将高层语义目标解析为物理坐标，并融合几何与语义信息构建场景图。
 
+## 🦾 样例演示
+
+<div align="center">
+  <img src="docs/imgs/setup.gif" alt="rekep" width="400">
+  <br>
+  OEA一键部署机械臂，无需写代码 （松灵 PIPER）
+</div>
+
+
+<div align="center">
+  <img src="docs/imgs/SAM3.gif" alt="rekep" width="400">
+  <br>
+  OEA通过SAM3实现自然语言驱动的抓取任务 （松灵 PIPER）
+</div>
+
+
+<div align="center">
+  <img src="docs/imgs/ReKep.gif" alt="rekep" width="400">
+  <br>
+  OEA通过ReKep实现自然语言驱动的抓取任务 (越疆 DBot)
+</div>
+
 ## 🏗️ 架构设计
 
 OEA 的核心是一个本地工作区（Workspace），软硬件作为独立的守护进程对文件进行读写：
@@ -84,7 +106,7 @@ OEA agent
 ### 4. 交互示例
 
 在 `OEA agent` 的 CLI 中输入：
-> "看看桌子上有什么，然后把那个苹果推到地上。"
+> "看看桌子上有什么，然后把那个苹果抓起来给我。"
 
 你将在终端 1 的仿真日志中看到动作的执行，并在终端 2 收到 Agent 的完成确认。
 
@@ -131,10 +153,28 @@ OpenEmbodiedAgent/
 - **Phase 2**: 多本体协同与多模态记忆。
 - **Phase 3**: 约束求解与高阶异构协同。
 
+## 🛠️ 支持设备
+
+OEA 通过 HAL (Hardware Abstraction Layer) 协议支持多种具身本体。
+
+| 本体类型 | 具体型号 | 适配状态 | 备注 |
+| :--- | :--- | :--- | :--- |
+| **桌面级机械臂** | 松灵 PIPER | 🟢 可支持 | 已验证 ReKep & SAM3 全链路 |
+| **复合协作机器人** | 松灵 PIPER + Unitree Go2 | 🟡 部分支持 | locomotion适配中 |
+| **桌面级机械臂** | 越疆 DoBot Nova 2 | 🟢 可支持 | 已验证 ReKep 部署 |
+| **四足机器人** | Unitree Go2 | 🟡 部分支持 | 目前仅适配移动与语义导航 |
+| **双臂操纵** | XLeRobot | 🟡 部分支持 | 目前仅支持双臂操纵协议 |
+| **IoT 设备** | 小智 (ESP32) | 🟡 部分支持 | 目前仅实现语音对话交互 |
+| **工业级机器人** | Franka Research 3 | ⚪ 未测试 | 驱动协议对接中 |
+| **教育机器人** | 幻尔系列 | 🔴 未适配 | 待开发驱动插件 |
+| **通用环境** | 内置仿真器 | 🟢 可支持 | 基于本地磁盘映射的轻量仿真 |
+
+> **说明**: OEA 采用插件化设计，任何支持 Python 控制接口的硬件均可通过 `hal/drivers/` 快速接入。
+
 ## 🤝 参与贡献
 
 欢迎提交 PR 或 Issue！请参考 `docs/USER_DEVELOPMENT_GUIDE.md` 了解详细的架构设计与开发指南。
 
 ---
 
-**特别鸣谢**：本项目基于 [nanobot](https://github.com/your-repo/nanobot) 开发，感谢其提供的轻量级 Agent 运行时底座。欢迎大家前往 [nanobot](https://github.com/your-repo/nanobot) 仓库点赞支持！
+**特别鸣谢**：本项目基于 [nanobot](https://github.com/your-repo/nanobot) 开发，感谢其提供的超轻量级 Agent 框架。欢迎大家前往 [nanobot](https://github.com/your-repo/nanobot) 点赞支持！

@@ -1,7 +1,7 @@
 # OpenEmbodiedAgent: 一种基于协议解耦与多智能体协同的自进化具身框架
 **(OpenEmbodiedAgent: A Decoupled Protocol-Based Framework for Self-Evolving and Cross-Embodiment Agents)**
 
-> **版本**: 2.1.0-Release | **发布日期**: 2026-03-20
+> **版本**: 0.1.0-Release | **发布日期**: 2026-03-20
 
 ## 摘要 (Abstract)
 随着大语言模型（LLM）Agentic 能力的质变，具身智能（Embodied AI）领域正面临技术路线的关键分化。传统的端到端视觉-语言-动作（Vision-Language-Action, VLA）模型虽展现出端到端优化的潜力，但其“黑盒”特性导致了可解释性缺失、局部调试困难及跨本体泛化能力受限等根本性瓶颈。当前 VLA 模型常被质疑是依赖“视觉-运动先验”而非真正遵循语言指令，且在失败时缺乏原则性的诊断机制。为此，我们提出 OpenEmbodiedAgent（OEA），一种基于 Agentic 工作流的自进化具身智能框架，通过引入“认知-物理解耦”的架构范式，实现了从强推理云端模型到边缘物理执行层的标准化映射。OEA 不再追求端到端神经网络的单体优化，而是通过构建语言-动作接口（Language-Action Interface），将动作表示与本体形态彻底解耦。本框架以极轻量级的 `nanobot` 运行环境为底座，定义了 `TASK`, `SKILL`, `ACTION`, `ENVIRONMENT`, `EMBODIED` 等结构化协议层。该架构原生支持跨硬件平台的零代码迁移、基于沙盒的代码工具自生成，以及基于多智能体验证（Multi-Agent Critic）的安全纠偏机制。此外，OEA 构建了统一的硬件抽象层（HAL），通过 `BaseDriver` 接口和动态加载机制，实现了对异构机器人本体（如机械臂、四足机器人、桌面宠物）的无缝支持。架构特性表明，OEA 在保持 LLM 强推理能力的同时，具备 VLA 范式难以企及的可解释性、跨本体零样本迁移能力与系统级安全保证。

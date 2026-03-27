@@ -29,6 +29,26 @@ OEA utilizes a **"State-as-a-File"** protocol matrix, natively supporting zero-c
 *   🎮 **Simulation Loop**: Built-in lightweight simulation support allows verification of the full chain from natural language instructions to physical state changes without real hardware.
 *   🗺️ **Semantic Navigation & Perception**: Built-in `SemanticNavigationTool` and `PerceptionService` support resolving high-level semantic goals into physical coordinates and constructing scene graphs by fusing geometric and semantic information.
 
+## 🦾 Showcase
+
+<div align="center">
+  <img src="docs/imgs/setup.gif" alt="rekep" width="400">
+  <br>
+  OEA deploys robot arms with one click, no coding required (AgileX PIPER).
+</div>
+
+<div align="center">
+  <img src="docs/imgs/SAM3.gif" alt="rekep" width="400">
+  <br>
+  OEA achieves natural language-driven grasping tasks through SAM3 (AgileX PIPER).
+</div>
+
+<div align="center">
+  <img src="docs/imgs/ReKep.gif" alt="rekep" width="400">
+  <br>
+  OEA achieves natural language-driven grasping tasks through ReKep (Dobot Nova 2).
+</div>
+
 ## 🏗️ Architecture
 
 OEA's core is a local workspace where software and hardware operate as independent daemons reading/writing files:
@@ -77,7 +97,7 @@ OEA agent
 
 ### 4. Interaction Example
 In the `OEA agent` CLI, input:
-> "Look at what is on the table, then push that apple to the floor."
+> "Look at what is on the table, then grasp that apple for me."
 
 You will see the action execution in the simulation logs in Terminal 1, and receive completion confirmation from the Agent in Terminal 2.
 
@@ -124,10 +144,28 @@ OpenEmbodiedAgent/
 - **Phase 2**: Multi-Embodiment Coordination & Multi-modal Memory.
 - **Phase 3**: Constraint Solving & High-level Heterogeneous Coordination.
 
+## 🛠️ Supported Devices
+
+OEA supports various embodiment types through the HAL (Hardware Abstraction Layer) protocol.
+
+| Embodiment Type | Model | Status | Remarks |
+| :--- | :--- | :--- | :--- |
+| **Desktop Robot Arm** | AgileX PIPER | 🟢 Verified | Full-chain verified with ReKep & SAM3 |
+| **Composite Robot** | AgileX PIPER + Unitree Go2 | 🟡 Partial |  locomotion adaptation in progress |
+| **Desktop Robot Arm** | Dobot Nova 2 | 🟢 Verified | ReKep deployment verified |
+| **Quadruped Robot** | Unitree Go2 | 🟡 Partial | Currently supports mobility and semantic navigation |
+| **Dual-Arm Control** | XLeRobot | 🟡 Partial | Currently supports dual-arm manipulation protocol |
+| **IoT Device** | XiaoZhi (ESP32) | 🟡 Partial | Currently supports voice dialogue interaction |
+| **Industrial Robot** | Franka Research 3 | ⚪ Untested | Driver protocol integration in progress |
+| **Edu Robot** | Hiwonder Series | 🔴 Unsupported | Awaiting driver plugin development |
+| **General Environment** | Built-in Simulator | 🟢 Verified | Lightweight simulation based on disk mapping |
+
+> **Note**: OEA is designed with a plugin architecture. Any hardware that supports a Python control interface can be quickly integrated via `hal/drivers/`.
+
 ## 🤝 Contribute
 
 PRs and Issues are welcome! Please refer to `docs/USER_DEVELOPMENT_GUIDE.md` for detailed architecture design and development guidelines.
 
 ---
 
-**Special Thanks**: This project is developed based on [nanobot](https://github.com/your-repo/nanobot), thanks for providing the lightweight Agent runtime base. Everyone is welcome to go to the [nanobot](https://github.com/your-repo/nanobot) repository and give it a star!
+**Special Thanks**: This project is developed based on [nanobot](https://github.com/your-repo/nanobot), thanks for providing the lightweight Agent framework. Everyone is welcome to go to the [nanobot](https://github.com/your-repo/nanobot) repository and give it a star!
