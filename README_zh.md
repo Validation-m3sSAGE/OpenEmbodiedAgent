@@ -1,80 +1,41 @@
 <div align="center">
-  <img src="oea-logo-v3-full_mmmxy7a5.png" alt="OpenEmbodiedAgent" width="500">
+  <img src="docs/imgs/logo.png" alt="OpenEmbodiedAgent" width="500">
   <h1>OpenEmbodiedAgent (OEA)</h1>
-  <p><b>基于约束求解与多智能体协同的消费级具身智能框架</b></p>
+  <p><b>一种基于协议解耦与多智能体协同的自进化具身框架</b></p>
   <p>
     <a href="./README.md">English</a> | <a href="./README_zh.md">中文</a>
   </p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.0.1-blue" alt="Version">
+    <img src="https://img.shields.io/badge/version-2.1.0-blue" alt="Version">
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   </p>
 </div>
 
-🐈 **OpenEmbodiedAgent (OEA)** 是一个致力于降低机器人使用门槛的开源具身智能框架。它摒弃了传统“大模型直接控制硬件”的危险黑盒模式，首创了**“万物皆 Markdown (State-as-a-File)”**的协议矩阵，并通过**双轨多体系统**（软件大脑 Track A + 硬件小脑 Track B）实现了安全、可解释、可进化的机器人控制。
+## 📖 简介
 
-⚡️ 当前版本 **v0.0.1 (OEA 先行版)** 基于超轻量级的 `nanobot` 架构构建，旨在通过桌面级虚拟宠物和仿真环境，快速验证 OEA 的核心协议与工作流。
+**OpenEmbodiedAgent (OEA)** 是一种基于 Agentic 工作流的自进化具身智能框架。它摒弃了传统**大模型直接控制硬件**的黑盒模式，首创了**认知-物理解耦**的架构范式，通过构建语言-动作接口（Language-Action Interface），将动作表示与本体形态彻底解耦，实现了从强推理云端模型到边缘物理执行层的标准化映射。
 
-## 📢 News
+OEA 采用**万物皆 Markdown** (State-as-a-File)的协议矩阵，原生支持跨硬件平台的零代码迁移、基于沙盒的代码工具自生成，以及基于多智能体验证（Multi-Agent Critic）的安全纠偏机制。
 
-- **2026-03-13** 🚀 Released **v0.0.1** — OEA 先行版发布，确立了“万物皆 Markdown”的核心协议，并跑通了基于仿真环境的软硬解耦与多 Agent 校验流。
+## ✨ 核心特性
 
-## Key Features of OEA:
+*   📝 **万物皆 Markdown (State-as-a-File)**: 软硬件通过读写本地 Markdown 文件（如 `ENVIRONMENT.md`、`ACTION.md`）进行通信，彻底解耦，极度透明。
+*   🧠 **双轨多体系统**:
+    *   **Track A (大脑)**: 包含 Planner (规划) 与 Critic (校验) 机制。大模型不直接下发指令，必须经过 Critic 对照当前机器人运行时 `EMBODIED.md`（由 profile 复制而来）的能力约束校验后才落盘。
+    *   **Track B (物理执行)**: 独立的硬件看门狗 (`hal_watchdog.py`) 监听指令并执行。支持单实例模式和多机器人协同的 **Fleet 模式**。
+*   🔌 **动态插件机制**: 支持通过 `hal/drivers/` 动态加载外部硬件驱动，无需修改核心代码即可扩展新硬件支持。
+*   🛡️ **安全纠偏机制**: 严格的动作校验与 `LESSONS.md` 经验避坑库，防止 Agent 工作流失控。
+*   🎮 **仿真环境闭环**: 内置轻量级仿真支持，无需真实硬件即可验证从自然语言指令到物理状态改变的全链路。
+*   🗺️ **语义导航与感知**: 内置 `SemanticNavigationTool` 和 `PerceptionService`，支持将高层语义目标解析为物理坐标，并融合几何与语义信息构建场景图。
 
-🪶 **万物皆 Markdown**: 软硬件通过读写本地 Markdown 文件（如 `ENVIRONMENT.md`, `ACTION.md`）进行通信，彻底解耦，极度透明。
-
-🧠 **双轨多体系统**:
-- **Track A (大脑)**: 包含 Planner (规划) 与 Critic (校验) 机制。大模型不直接下发指令，必须经过 Critic 对照当前机器人运行时 `EMBODIED.md`（由 profile 复制而来）的能力约束校验后才落盘。
-- **Track B (小脑)**: 独立的硬件看门狗 (`hal_watchdog.py`) 监听指令并执行。
-
-🛡️ **Anti-Shitstorm 机制**: 严格的动作校验与 `LESSONS.md` 经验避坑库，防止 Agent 工作流失控。
-
-🎮 **仿真环境闭环**: 内置轻量级仿真支持，无需真实硬件即可验证从自然语言指令到物理状态改变的全链路。
-
-## 🏗️ Architecture
+## 🏗️ 架构设计
 
 OEA 的核心是一个本地工作区（Workspace），软硬件作为独立的守护进程对文件进行读写：
 
-```mermaid
-graph TD
-    subgraph Track A: 软件大脑 (Software Brain)
-        Planner[Planner Agent]
-        Critic[Critic Agent]
-        Vision[Vision MCP Server]
-    end
-
-    subgraph Workspace API: 状态即文件 (State-as-a-File)
-        ENV[ENVIRONMENT.md<br/>环境感知]
-        EMB[EMBODIED.md<br/>本体声明]
-        ACT[ACTION.md<br/>动作指令]
-        LES[LESSONS.md<br/>经验避坑]
-    end
-
-    subgraph Track B: 硬件小脑 (Hardware HAL)
-        Watchdog[HAL Watchdog]
-        Sim[Simulation Env / Real Robot]
-    end
-
-    Vision -->|写入 Scene-Graph| ENV
-    Planner -->|读取| ENV
-    Planner -->|读取| LES
-    Planner -->|生成草稿| Critic
-    Critic -->|读取物理极限| EMB
-    Critic -->|校验通过写入| ACT
-    Watchdog -->|监听并解析| ACT
-    Watchdog -->|驱动| Sim
-    Sim -->|状态回传更新| ENV
-```
-
-## Table of Contents
-
-- [News](#-news)
-- [Key Features](#key-features-of-oea)
-- [Architecture](#️-architecture)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Contribute & Roadmap](#-contribute--roadmap)
+<div align="center">
+  <img src="docs/imgs/oea_zh.png" alt="OpenEmbodiedAgent" width="900">
+</div>
 
 ## 🚀 Quick Start
 
@@ -157,27 +118,23 @@ OpenEmbodiedAgent/
 └── README_zh.md            # 中文说明
 ```
 
-## 🤝 Contribute & Roadmap
+## 🗺️ 演进路线图
 
-欢迎提交 PR 或 Issue！请参考 `docs/PROJ.md` 了解详细的架构设计与团队分工。
+- **Phase 1**: 桌面闭环与 Markdown 协议确立。
+    - [x] v0.0.1: 完成框架设计与初始化
+    - [x] v0.0.2: 完成插件形式的embodied skill部署与调用的设计
+    - [x] v0.0.3: 完成视觉解耦+抓取的通路（SAM3和ReKep）
+    - [x] v0.0.4: 完成基于原子动作的VLN通路（SAM3）
+    - [x] v0.0.5: 多智能体协议的初步设计
+    - [ ] v0.0.6: 长程任务的拆解、编排与执行
+    - [ ] v0.0.7: 对小智等IoT设备的接入
+- **Phase 2**: 多本体协同与多模态记忆。
+- **Phase 3**: 约束求解与高阶异构协同。
 
-**Roadmap** — Pick an item and open a PR!
+## 🤝 参与贡献
 
-- [x] **Phase 1 (当前 v0.0.1): 桌面闭环与 Markdown 协议确立**
-  - [x] 扩展 Workspace 模板，确保包含 `EMBODIED.md`, `ENVIRONMENT.md`, `ACTION.md`, `LESSONS.md`, `SKILL.md`
-  - [x] 修改 `OEA/agent/context.py` 强制注入 `EMBODIED.md` 和 `ENVIRONMENT.md`
-  - [x] 开发 `EmbodiedActionTool` 实现 Critic 校验机制并落盘 `ACTION.md`
-  - [x] 配置 Heartbeat 主动唤醒机制
-  - [x] 开发 `hal_watchdog.py` 监听 `ACTION.md` 并接入仿真环境执行
-  - [x] 联调与测试：运行 `OEA agent` 和 `hal_watchdog.py`（带仿真界面），下发指令验证闭环
-- [ ] **Phase 2: 视觉解耦与工具链合并**
-  - [ ] 开发真实的视觉感知 Server (MCP Vision Server)
-  - [ ] 将相机的多模态信息稳定降维成文本 Scene-Graph 写入 `ENVIRONMENT.md`
-  - [ ] 激活 `LESSONS.md` 机制，让模型学会“吃一堑长一智”
-  - [ ] 在 ROS2 环境下，跑通 Go2 EDU 四足底盘的指令下发与状态回传
-- [ ] **Phase 3: 约束求解与高阶异构协同**
-  - [ ] 基于 Franka 和 Xlerobot，完成 C++ 版本的高性能 ReKep 约束求解器
-  - [ ] 接入 ROSClaw Bridge
-  - [ ] 升级调度逻辑，在 `ACTION.md` 中实现多设备并发指令的时间锁/空间锁
-  - [ ] 实现从“桌面 OEA 情感交互”到“一车一臂协同整理客厅”的跨越
-  - [ ] 正式上线基于 `SKILL.md` 的社区生态市场
+欢迎提交 PR 或 Issue！请参考 `docs/USER_DEVELOPMENT_GUIDE.md` 了解详细的架构设计与开发指南。
+
+---
+
+**特别鸣谢**：本项目基于 [nanobot](https://github.com/your-repo/nanobot) 开发，感谢其提供的轻量级 Agent 运行时底座。欢迎大家前往 [nanobot](https://github.com/your-repo/nanobot) 仓库点赞支持！

@@ -1,117 +1,71 @@
 <div align="center">
-  <img src="logo.png" alt="OpenEmbodiedAgent" width="600">
+  <img src="docs/imgs/logo.png" alt="OpenEmbodiedAgent" width="500">
   <h1>OpenEmbodiedAgent (OEA)</h1>
-  <p><b>A Consumer-Grade Embodied AI Framework Based on Constraint Solving and Multi-Agent Collaboration</b></p>
+  <p><b>A Decoupled Protocol-Based Framework for Self-Evolving and Cross-Embodiment Agents</b></p>
   <p>
     <a href="./README.md">English</a> | <a href="./README_zh.md">中文</a>
   </p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.0.2-blue" alt="Version">
+    <img src="https://img.shields.io/badge/version-2.1.0-blue" alt="Version">
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   </p>
 </div>
 
-🐈 **OpenEmbodiedAgent (OEA)** is an open-source embodied AI framework dedicated to lowering the barrier to entry for robotics. It abandons the dangerous black-box model of "LLMs directly controlling hardware" and pioneers the **"State-as-a-File (Everything is Markdown)"** protocol matrix. Through a **Dual-Track Multi-Agent System** (Software Brain Track A + Hardware HAL Track B), it achieves safe, interpretable, and evolvable robot control.
+## 📖 Introduction
 
-⚡️ The current version **v0.0.2 (OEA Pioneer Edition)** is built on the ultra-lightweight `nanobot` architecture, aiming to quickly validate OEA's core protocols and workflows through a desktop-level virtual pet and simulation environment.
+**OpenEmbodiedAgent (OEA)** is a self-evolving embodied AI framework based on Agentic workflows. Moving away from the "black-box" model of traditional "large models directly controlling hardware," OEA pioneers a **"Cognitive-Physical Decoupling"** architectural paradigm. By constructing a Language-Action Interface, it completely decouples action representation from embodiment morphology, enabling standardized mapping from high-reasoning cloud models to edge physical execution layers.
 
-## 📢 News
+OEA utilizes a **"State-as-a-File"** protocol matrix, natively supporting zero-code migration across hardware platforms, sandbox-driven tool self-generation, and safety correction mechanisms based on Multi-Agent Critic verification.
 
-- **2026-03-13** 🚀 Released **v0.0.1** — OEA Pioneer Edition released, establishing the core "Everything is Markdown" protocol and validating the software-hardware decoupling and multi-agent validation flow based on a simulation environment.
+## ✨ Core Features
 
-## Key Features of OEA:
-
-🪶 **Everything is Markdown**: Software and hardware communicate by reading and writing local Markdown files (e.g., `ENVIRONMENT.md`, `ACTION.md`), achieving complete decoupling and extreme transparency.
-
-🧠 **Dual-Track Multi-Agent System**:
-- **Track A (Brain)**: Includes Planner and Critic mechanisms. The LLM does not issue commands directly; they must pass the Critic's validation against the active robot profile copied into runtime `EMBODIED.md` before being written to disk.
-- **Track B (HAL)**: An independent hardware watchdog (`hal_watchdog.py`) listens for commands and executes them.
-
-🛡️ **Anti-Shitstorm Mechanism**: Strict action validation and a `LESSONS.md` experience repository prevent Agent workflows from spiraling out of control.
-
-🎮 **Simulation Loop**: Built-in lightweight simulation support allows validation of the entire pipeline from natural language commands to physical state changes without real hardware.
+*   📝 **State-as-a-File**: Software and hardware communicate by reading/writing local Markdown files (e.g., `ENVIRONMENT.md`, `ACTION.md`), ensuring complete decoupling and extreme transparency.
+*   🧠 **Dual-Track Multi-Agent System**:
+    *   **Track A (Cognitive Core)**: Includes Planner and Critic mechanisms. Large models do not issue commands directly; they must be verified by the Critic against the current robot's runtime `EMBODIED.md` (copied from profiles) before being committed.
+    *   **Track B (Physical Execution)**: An independent hardware watchdog (`hal_watchdog.py`) monitors and executes commands. Supports both single-instance mode and **Fleet mode** for multi-robot coordination.
+*   🔌 **Dynamic Plugin Mechanism**: Supports dynamic loading of external hardware drivers via `hal/drivers/`, allowing for new hardware support without modifying core code.
+*   🛡️ **Safety Correction Mechanism**: Strict action verification and `LESSONS.md` experience library prevent Agent workflows from going out of control.
+*   🎮 **Simulation Loop**: Built-in lightweight simulation support allows verification of the full chain from natural language instructions to physical state changes without real hardware.
+*   🗺️ **Semantic Navigation & Perception**: Built-in `SemanticNavigationTool` and `PerceptionService` support resolving high-level semantic goals into physical coordinates and constructing scene graphs by fusing geometric and semantic information.
 
 ## 🏗️ Architecture
 
-The core of OEA is a local Workspace, where software and hardware act as independent daemon processes reading and writing files:
+OEA's core is a local workspace where software and hardware operate as independent daemons reading/writing files:
 
-```mermaid
-graph TD
-    subgraph Track A: Software Brain
-        Planner[Planner Agent]
-        Critic[Critic Agent]
-        Vision[Vision MCP Server]
-    end
-
-    subgraph Workspace API: State-as-a-File
-        ENV[ENVIRONMENT.md<br/>Perception]
-        EMB[EMBODIED.md<br/>Embodiment]
-        ACT[ACTION.md<br/>Action]
-        LES[LESSONS.md<br/>Lessons]
-    end
-
-    subgraph Track B: Hardware HAL
-        Watchdog[HAL Watchdog]
-        Sim[Simulation Env / Real Robot]
-    end
-
-    Vision -->|Write Scene-Graph| ENV
-    Planner -->|Read| ENV
-    Planner -->|Read| LES
-    Planner -->|Generate Draft| Critic
-    Critic -->|Read Limits| EMB
-    Critic -->|Validate & Write| ACT
-    Watchdog -->|Listen & Parse| ACT
-    Watchdog -->|Drive| Sim
-    Sim -->|Update State| ENV
-```
-
-## Table of Contents
-
-- [News](#-news)
-- [Key Features](#key-features-of-oea)
-- [Architecture](#️-architecture)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Contribute & Roadmap](#-contribute--roadmap)
+<div align="center">
+  <img src="docs/imgs/oea_en.png" alt="OpenEmbodiedAgent" width="900">
+</div>
 
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
-
 ```bash
 git clone https://github.com/your-repo/OpenEmbodiedAgent.git
 cd OpenEmbodiedAgent
 pip install -e .
 # Install simulation dependencies (e.g., watchdog)
-pip install pybullet watchdog
+pip install watchdog
 
-# Optional: install the external ReKep real-world plugin
+# Optional: Install external ReKep real-world plugin
 python scripts/deploy_rekep_real_plugin.py \
   --repo-url https://github.com/baiyu858/oea-rekep-real-plugin.git
 ```
 
 ### 2. Initialize Workspace
-
 ```bash
 OEA onboard
 ```
-This will generate the core Markdown protocol files under the active workspace.
-In single mode the default path is `~/.OEA/workspace/`.
-In fleet mode OEA uses a shared workspace plus one workspace per robot under `~/.OEA/workspaces/`.
+This generates core Markdown protocol files in the current workspace. Single-instance mode defaults to `~/.OEA/workspace/`; Fleet mode uses a shared workspace and multiple robot workspaces under `~/.OEA/workspaces/`.
 
 ### 3. Start the System
-
-You need to open two terminals:
+Open two terminals:
 
 **Terminal 1: Start Hardware Watchdog & Simulation (Track B)**
 ```bash
 python hal/hal_watchdog.py
 ```
-
-If you want the real-world ReKep embodiment instead of simulation, install the plugin first and then run:
-
+To use real-world ReKep instead of simulation, install the plugin and run:
 ```bash
 python hal/hal_watchdog.py --driver rekep_real
 ```
@@ -122,33 +76,32 @@ OEA agent
 ```
 
 ### 4. Interaction Example
+In the `OEA agent` CLI, input:
+> "Look at what is on the table, then push that apple to the floor."
 
-In the `OEA agent` CLI, type:
-> "Look at what's on the table, then push that apple onto the floor."
-
-You will see the action executed in the simulation logs in Terminal 1, and receive a completion confirmation from the Agent in Terminal 2.
+You will see the action execution in the simulation logs in Terminal 1, and receive completion confirmation from the Agent in Terminal 2.
 
 ## 📁 Project Structure
 
 ```text
 OpenEmbodiedAgent/
-├── OEA/                # Track A: Software Brain Core (extended from OEA)
+├── OEA/                # Track A: Software Brain Core
 │   ├── agent/              # Agent Logic (Planner, Critic)
-│   ├── templates/          # Workspace Markdown templates (protocol structure only)
+│   ├── templates/          # Workspace Markdown Templates
 │   └── ...
-├── hal/                    # Track B: Hardware HAL & Simulation (New)
+├── hal/                    # Track B: Hardware HAL & Simulation
 │   ├── hal_watchdog.py     # Hardware Watchdog Daemon
 │   └── simulation/         # Simulation Environment Code
-├── scripts/                # Deployment helpers for external HAL plugins
+├── scripts/                # External HAL Plugin Deployment
 │   └── deploy_rekep_real_plugin.py
-├── workspace/              # Single-mode runtime workspace (compatible default)
-│   ├── EMBODIED.md         # Runtime robot profile copied from hal/profiles/
-│   ├── ENVIRONMENT.md      # Current Environment Scene-Graph
+├── workspace/              # Single-instance Runtime Workspace
+│   ├── EMBODIED.md         # Runtime Robot Profile
+│   ├── ENVIRONMENT.md      # Current Scene-Graph
 │   ├── ACTION.md           # Pending Action Commands
 │   ├── LESSONS.md          # Failure Experience Records
-│   └── SKILL.md            # Successful Workflow SOPs
-workspaces/             # Fleet-mode topology
-│   ├── shared/             # Agent workspace and global ENVIRONMENT.md
+│   └── SKILL.md            # Successful Workflow SOP
+├── workspaces/             # Fleet Topology
+│   ├── shared/             # Agent Workspace & Global ENVIRONMENT.md
 │   ├── go2_edu_001/        # Robot-local ACTION.md / EMBODIED.md
 │   └── ...
 ├── docs/                   # Project Documentation
@@ -158,27 +111,23 @@ workspaces/             # Fleet-mode topology
 └── README_zh.md            # Chinese Documentation
 ```
 
-## 🤝 Contribute & Roadmap
+## 🗺️ Roadmap
 
-PRs and Issues are welcome! Please refer to `docs/PROJ.md` for detailed architecture design and team division.
+- **Phase 1**: Desktop Loop & Markdown Protocol Establishment.
+    - [x] v0.0.1: Framework Design & Initialization
+    - [x] v0.0.2: Embodied Skill Plugin Deployment & Invocation Design
+    - [x] v0.0.3: Visual Decoupling + Grasping Pipeline (SAM3 & ReKep)
+    - [x] v0.0.4: Atomic Action-based VLN Pipeline (SAM3)
+    - [x] v0.0.5: Multi-Agent Protocol Design
+    - [ ] v0.0.6: Long-horizon Task Decomposition, Orchestration & Execution
+    - [ ] v0.0.7: IoT Device Integration (e.g., XiaoZhi)
+- **Phase 2**: Multi-Embodiment Coordination & Multi-modal Memory.
+- **Phase 3**: Constraint Solving & High-level Heterogeneous Coordination.
 
-**Roadmap** — Pick an item and open a PR!
+## 🤝 Contribute
 
-- [x] **Phase 1 (Current v0.0.1): Desktop Loop & Markdown Protocol Establishment**
-  - [x] Extend Workspace templates to include `EMBODIED.md`, `ENVIRONMENT.md`, `ACTION.md`, `LESSONS.md`, `SKILL.md`
-  - [x] Modify `OEA/agent/context.py` to forcefully inject `EMBODIED.md` and `ENVIRONMENT.md`
-  - [x] Develop `EmbodiedActionTool` to implement Critic validation mechanism and write to `ACTION.md`
-  - [x] Configure Heartbeat proactive wake-up mechanism
-  - [x] Develop `hal_watchdog.py` to listen to `ACTION.md` and integrate with simulation environment execution
-  - [x] Integration & Testing: Run `OEA agent` and `hal_watchdog.py` (with simulation interface), issue commands to validate the loop
-- [ ] **Phase 2: Vision Decoupling & Toolchain Merge**
-  - [ ] Develop a real MCP Vision Server
-  - [ ] Stably reduce multi-modal camera information into a text Scene-Graph and write to `ENVIRONMENT.md`
-  - [ ] Activate the `LESSONS.md` mechanism, allowing the model to learn from mistakes
-  - [ ] In a ROS2 environment, run through command dispatch and state feedback for the Go2 EDU quadruped chassis
-- [ ] **Phase 3: Constraint Solving & High-Order Heterogeneous Collaboration**
-  - [ ] Based on Franka and Xlerobot, complete a high-performance C++ ReKep constraint solver
-  - [ ] Integrate ROSClaw Bridge
-  - [ ] Upgrade scheduling logic to implement time/space locks for concurrent multi-device commands in `ACTION.md`
-  - [ ] Achieve the leap from "desktop OEA emotional interaction" to "one car, one arm collaborating to tidy the living room"
-  - [ ] Officially launch a community ecosystem market based on `SKILL.md`
+PRs and Issues are welcome! Please refer to `docs/USER_DEVELOPMENT_GUIDE.md` for detailed architecture design and development guidelines.
+
+---
+
+**Special Thanks**: This project is developed based on [nanobot](https://github.com/your-repo/nanobot), thanks for providing the lightweight Agent runtime base. Everyone is welcome to go to the [nanobot](https://github.com/your-repo/nanobot) repository and give it a star!
