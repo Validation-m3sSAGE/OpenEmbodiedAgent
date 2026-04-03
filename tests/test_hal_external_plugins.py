@@ -12,36 +12,32 @@ def _write(path: Path, content: str) -> None:
     path.write_text(textwrap.dedent(content).lstrip(), encoding="utf-8")
 
 
-def test_external_driver_can_be_registered_and_loaded(tmp_path, monkeypatch):
-    plugin_home = tmp_path / "plugin-home"
-    plugin_repo = tmp_path / "sample-plugin"
-    monkeypatch.setenv("PhyAgentOS_PLUGIN_HOME", str(plugin_home))
-
+def _write_sample_plugin(plugin_repo: Path, manifest_name: str, module_name: str, driver_name: str) -> None:
     _write(
-        plugin_repo / "PhyAgentOS_plugin.toml",
-        """
+        plugin_repo / manifest_name,
+        f"""
         [plugin]
-        name = "sample_plugin"
+        name = "{module_name}"
         version = "0.0.1"
 
         [driver]
-        name = "sample_ext"
-        module = "sample_plugin.driver"
+        name = "{driver_name}"
+        module = "{module_name}.driver"
         class = "SampleDriver"
-        profile_path = "sample_plugin/profiles/sample.md"
+        profile_path = "{module_name}/profiles/sample.md"
 
         [python]
         sys_paths = ["."]
         """,
     )
     _write(
-        plugin_repo / "sample_plugin" / "__init__.py",
+        plugin_repo / module_name / "__init__.py",
         """
         from .driver import SampleDriver
         """,
     )
     _write(
-        plugin_repo / "sample_plugin" / "driver.py",
+        plugin_repo / module_name / "driver.py",
         """
         from pathlib import Path
 
@@ -65,7 +61,20 @@ def test_external_driver_can_be_registered_and_loaded(tmp_path, monkeypatch):
                 return dict(self._scene)
         """,
     )
-    _write(plugin_repo / "sample_plugin" / "profiles" / "sample.md", "# sample\n")
+    _write(plugin_repo / module_name / "profiles" / "sample.md", "# sample\n")
+
+
+def test_external_driver_can_be_registered_and_loaded(tmp_path, monkeypatch):
+    plugin_home = tmp_path / "plugin-home"
+    plugin_repo = tmp_path / "sample-plugin"
+    monkeypatch.setenv("PhyAgentOS_PLUGIN_HOME", str(plugin_home))
+
+    _write_sample_plugin(
+        plugin_repo,
+        manifest_name="PhyAgentOS_plugin.toml",
+        module_name="sample_plugin",
+        driver_name="sample_ext",
+    )
 
     spec = register_plugin(plugin_repo, source_url=str(plugin_repo), ref="local")
     assert spec.driver_name == "sample_ext"

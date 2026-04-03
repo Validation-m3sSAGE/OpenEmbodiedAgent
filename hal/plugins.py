@@ -38,7 +38,7 @@ class ExternalDriverSpec:
 
 
 def get_plugin_home() -> Path:
-    raw = os.environ.get(_PLUGIN_HOME_ENV, "")
+    raw = os.environ.get(_PLUGIN_HOME_ENV, "").strip()
     return Path(raw).expanduser().resolve() if raw else _DEFAULT_PLUGIN_HOME
 
 

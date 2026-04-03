@@ -129,7 +129,7 @@ def main() -> None:
     source = args.repo_url.strip() or _resolve_default_source()
     if not source:
         parser.error(
-            "No plugin source available. Pass --repo-url or set PhyAgentOS_REKEP_REAL_PLUGIN_REPO."
+            "No plugin source available. Pass --repo-url, set PhyAgentOS_REKEP_REAL_PLUGIN_REPO, or place the plugin repo next to PhyAgentOS."
         )
 
     plugin_dest = get_plugin_repo_path("rekep_real")
