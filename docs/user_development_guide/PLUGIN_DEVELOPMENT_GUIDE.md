@@ -11,6 +11,18 @@ This guide answers four questions:
 3. How do you develop, deploy, and invoke a plugin using `PhyAgentOS-rekep-real-plugin` as the example?
 4. What testing and release workflow is recommended for a community-maintained plugin repository?
 
+If you want the agent to scaffold the integration from a vendor SDK before you refine it manually, the main repository also ships a built-in skill:
+
+- [`PhyAgentOS/skills/rekep-robot-onboarding`](../../PhyAgentOS/skills/rekep-robot-onboarding/SKILL.md)
+
+The typical flow is to place the SDK under `PhyAgentOS-rekep-real-plugin/runtime/third_party/<robot_slug>/` and then tell the agent:
+
+```text
+Help me onboard a new robot <robot name> into ReKep
+```
+
+The skill inspects the SDK, drafts the adapter and factory wiring, updates the docs, and returns deployment and startup commands.
+
 ## 1. What Is a PhyAgentOS Plugin
 
 PhyAgentOS uses HAL (Hardware Abstraction Layer) to connect different embodiments through one unified execution interface. The core rule is simple:

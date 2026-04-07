@@ -24,3 +24,4 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `clawhub` | Search and install skills from ClawHub registry |
 | `skill-creator` | Create new skills |
 | `robot-management-guideline` | Must-read manual to manage robot projects |
+| `rekep-robot-onboarding` | Inspect a robot SDK and wire it into the external ReKep plugin |

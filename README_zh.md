@@ -124,9 +124,16 @@ paos agent
 
 你将在终端 1 的仿真日志中看到动作的执行，并在终端 2 收到 Agent 的完成确认。
 
+如果你想用内置 skill 自动把新机器人接入 `PhyAgentOS-rekep-real-plugin`：
+
+1. 先把机器人 SDK 放到 `../PhyAgentOS-rekep-real-plugin/runtime/third_party/<robot_slug>/`，或 `~/.PhyAgentOS/plugins/repos/rekep_real/runtime/third_party/<robot_slug>/`。
+2. 然后直接对智能体说：`帮我接入新机器人 <机器人名>`。
+3. skill 会自动读取 SDK，起草 adapter / factory 改动，并给出部署和启动说明。完整参考见 [docs/user_development_guide/PLUGIN_DEVELOPMENT_GUIDE_zh.md](docs/user_development_guide/PLUGIN_DEVELOPMENT_GUIDE_zh.md)。
+
 ### 5. 更多信息
 
 [用户手册](docs/user_manual/README.md)：面向使用者、集成者与演示操作者的运行手册。
+
 [开发手册](docs/user_development_guide/README.md)：面向二次开发者、硬件接入者、插件作者与维护者的分层手册。
 
 

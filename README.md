@@ -119,7 +119,13 @@ In the `paos agent` CLI, input:
 
 You will see the action execution in the simulation logs in Terminal 1, and receive completion confirmation from the Agent in Terminal 2.
 
-5. More Information
+To auto-onboard a new robot into `PhyAgentOS-rekep-real-plugin` with the built-in skill:
+
+1. Place the robot SDK under `../PhyAgentOS-rekep-real-plugin/runtime/third_party/<robot_slug>/` or `~/.PhyAgentOS/plugins/repos/rekep_real/runtime/third_party/<robot_slug>/`.
+2. Tell the agent: `Help me onboard a new robot <robot name> into ReKep`.
+3. The skill will inspect the SDK, draft the adapter/factory changes, and return deployment and startup instructions. Full reference: [docs/user_development_guide/PLUGIN_DEVELOPMENT_GUIDE.md](docs/user_development_guide/PLUGIN_DEVELOPMENT_GUIDE.md).
+
+### 5. More Information
 
 [User Manual](docs/user_manual/README.md): Operations guide for end users, integrators, and demo operators.
 

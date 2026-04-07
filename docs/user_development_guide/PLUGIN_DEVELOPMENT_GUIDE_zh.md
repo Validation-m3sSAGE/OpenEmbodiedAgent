@@ -11,6 +11,18 @@
 3. 以 `PhyAgentOS-rekep-real-plugin` 为例，如何开发、部署和调用插件。
 4. 社区维护一个插件仓库时，推荐的测试和发布流程是什么。
 
+如果你希望先让智能体帮你从 SDK 自动起草适配代码，而不是手工从零开始，主仓库还提供了一个现成的 skill：
+
+- [`PhyAgentOS/skills/rekep-robot-onboarding`](../../PhyAgentOS/skills/rekep-robot-onboarding/SKILL.md)
+
+典型用法是先把 SDK 放进 `PhyAgentOS-rekep-real-plugin/runtime/third_party/<robot_slug>/`，然后直接对智能体说：
+
+```text
+帮我接入新机器人 <机器人名>
+```
+
+该 skill 会自动检查 SDK、补 adapter/factory/docs，并给出部署与启动命令。
+
 ## 1. 什么是 PhyAgentOS 插件
 
 PhyAgentOS 的执行层通过 HAL（Hardware Abstraction Layer）统一接入不同本体。核心约束只有一条：
