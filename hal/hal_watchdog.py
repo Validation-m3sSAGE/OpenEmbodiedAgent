@@ -13,7 +13,7 @@ import json
 import shutil
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from hal.simulation.scene_io import (
@@ -83,7 +83,7 @@ def _save_scene(driver, path: Path, scene: dict[str, dict], registry=None) -> No
         scene_graph=runtime_state.get("scene_graph"),
         map_data=runtime_state.get("map"),
         tf_data=runtime_state.get("tf"),
-        updated_at=datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        updated_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
     )
     save_environment_doc(path, updated)
     if registry is not None and getattr(registry, "is_fleet", False):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -10,7 +10,7 @@ class GeometryPipeline:
     """Consumes geometric sensor streams and emits map/TF summaries."""
 
     def process(self, *, pointcloud: Any = None, odom: dict | None = None) -> dict:
-        stamp = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        stamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         pointcloud = pointcloud or {}
         map_data = {
             "frame": "map",

@@ -125,8 +125,7 @@ class EmbodimentRegistry:
         return path
 
     def render_robot_index(self) -> str:
-        env = load_environment_doc(self.resolve_environment_path())
-        robot_state = env.get("robots", {}) if isinstance(env, dict) else {}
+        environment_cache: dict[Path, dict] = {}
         lines = [
             "# Robot Registry",
             "",
@@ -137,6 +136,11 @@ class EmbodimentRegistry:
             "|---|---|---|---|---|---|---|---|---|",
         ]
         for instance in self.instances():
+            env_path = self.resolve_environment_path(robot_id=instance.robot_id)
+            if env_path not in environment_cache:
+                environment_cache[env_path] = load_environment_doc(env_path)
+            env = environment_cache[env_path]
+            robot_state = env.get("robots", {}) if isinstance(env, dict) else {}
             runtime = robot_state.get(instance.robot_id, {})
             connection = (runtime.get("connection_state") or {}).get("status", "unknown")
             navigation = (runtime.get("nav_state") or {}).get("status", "unknown")

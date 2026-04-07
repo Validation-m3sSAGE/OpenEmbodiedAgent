@@ -24,7 +24,6 @@ def test_load_driver_config_reads_json_object(tmp_path: Path) -> None:
         "auto_start_remote": True,
     }
 
-
 def test_load_driver_config_rejects_non_object_json(tmp_path: Path) -> None:
     config_file = tmp_path / "driver.json"
     config_file.write_text(json.dumps(["not", "an", "object"]), encoding="utf-8")

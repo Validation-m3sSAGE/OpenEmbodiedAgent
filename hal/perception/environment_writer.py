@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +42,7 @@ class EnvironmentWriter:
             scene_graph=scene_graph,
             map_data=map_data,
             tf_data=tf_data,
-            updated_at=datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            updated_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         )
         save_environment_doc(env_path, merged)
         return merged

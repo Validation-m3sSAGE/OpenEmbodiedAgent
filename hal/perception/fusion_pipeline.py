@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class FusionPipeline:
     """Fuses detections into a structured scene graph."""
 
     def process(self, detections: list[dict], geometry: dict | None = None) -> dict:
-        timestamp = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         nodes = []
         edges = []
         for idx, detection in enumerate(detections):

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,11 +17,17 @@ _PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
 class Go2Driver(BaseDriver):
     """Navigation-oriented driver with a dependency-free mock runtime."""
 
-    ROBOT_ID = "go2_edu_001"
-
-    def __init__(self, gui: bool = False, bridge: ROS2Bridge | None = None, **kwargs: Any):
+    def __init__(
+        self,
+        gui: bool = False,
+        bridge: ROS2Bridge | None = None,
+        *,
+        robot_id: str | None = None,
+        **kwargs: Any,
+    ):
         self._gui = gui
         self._bridge = bridge or ROS2Bridge(enabled=False)
+        self.robot_id = str(robot_id or kwargs.get("robot_id") or "go2_edu_001").strip() or "go2_edu_001"
         self._objects: dict[str, dict] = {}
         self._target_navigation_backend = TargetNavigationBackend(
             backend_mode=kwargs.get("target_navigation_backend", "mock"),
@@ -35,7 +41,7 @@ class Go2Driver(BaseDriver):
             "auth": kwargs.get("auth", "key"),
             "reconnect_policy": kwargs.get("reconnect_policy", "auto"),
         }
-        self._runtime_state = {"robots": {self.ROBOT_ID: self._make_robot_state()}}
+        self._runtime_state = {"robots": {self.robot_id: self._make_robot_state()}}
 
     def get_profile_path(self) -> Path:
         return _PROFILES_DIR / "go2_edu.md"
@@ -44,7 +50,7 @@ class Go2Driver(BaseDriver):
         self._objects = dict(scene)
 
     def connect(self) -> bool:
-        state = self._robot_state(self.ROBOT_ID)
+        state = self._robot_state(self.robot_id)
         conn = dict(state["connection_state"])
         backend_ok = self._target_navigation_backend.connect()
         conn.update(
@@ -58,11 +64,11 @@ class Go2Driver(BaseDriver):
             }
         )
         state["connection_state"] = conn
-        self._refresh_target_navigation_runtime(self.ROBOT_ID)
+        self._refresh_target_navigation_runtime(self.robot_id)
         return backend_ok
 
     def disconnect(self) -> None:
-        state = self._robot_state(self.ROBOT_ID)
+        state = self._robot_state(self.robot_id)
         conn = dict(state["connection_state"])
         self._target_navigation_backend.disconnect()
         conn.update(
@@ -74,10 +80,10 @@ class Go2Driver(BaseDriver):
         state["connection_state"] = conn
 
     def is_connected(self) -> bool:
-        return self._robot_state(self.ROBOT_ID)["connection_state"].get("status") == "connected"
+        return self._robot_state(self.robot_id)["connection_state"].get("status") == "connected"
 
     def health_check(self) -> bool:
-        state = self._robot_state(self.ROBOT_ID)
+        state = self._robot_state(self.robot_id)
         conn = dict(state["connection_state"])
         backend_health = self._target_navigation_backend.health_check()
         if self.is_connected():
@@ -87,7 +93,7 @@ class Go2Driver(BaseDriver):
             else:
                 conn["last_error"] = None
             state["connection_state"] = conn
-            self._refresh_target_navigation_runtime(self.ROBOT_ID)
+            self._refresh_target_navigation_runtime(self.robot_id)
             return True
 
         if self._connection_config.get("reconnect_policy") == "auto":
@@ -99,6 +105,11 @@ class Go2Driver(BaseDriver):
         return False
 
     def execute_action(self, action_type: str, params: dict) -> str:
+        try:
+            self._validate_robot_id(params)
+        except ValueError as exc:
+            return f"Error: {exc}"
+
         if action_type == "connect_robot":
             self.connect()
             return "Robot connection established."
@@ -114,7 +125,7 @@ class Go2Driver(BaseDriver):
 
         if not self.is_connected() and not self.connect():
             self._update_nav_state(
-                params.get("robot_id", self.ROBOT_ID),
+                params.get("robot_id", self.robot_id),
                 mode="idle",
                 status="failed",
                 last_error="disconnected",
@@ -128,7 +139,7 @@ class Go2Driver(BaseDriver):
         if action_type == "localize":
             return self._localize(params)
         if action_type == "stop":
-            robot_id = params.get("robot_id", self.ROBOT_ID)
+            robot_id = params.get("robot_id", self.robot_id)
             self._target_navigation_backend.stop()
             self._update_nav_state(
                 robot_id,
@@ -145,8 +156,15 @@ class Go2Driver(BaseDriver):
     def get_runtime_state(self) -> dict[str, Any]:
         return self._runtime_state
 
+    def _validate_robot_id(self, params: dict[str, Any]) -> None:
+        requested = str(params.get("robot_id", "")).strip()
+        if requested and requested != self.robot_id:
+            raise ValueError(
+                f"robot_id mismatch: requested={requested}, configured={self.robot_id}"
+            )
+
     def _semantic_navigate(self, params: dict[str, Any]) -> str:
-        robot_id = params.get("robot_id", self.ROBOT_ID)
+        robot_id = params.get("robot_id", self.robot_id)
         goal_pose = params.get("goal_pose") or {}
         target_ref = params.get("target_ref") or {}
         mock_status = params.get("mock_status")
@@ -221,7 +239,7 @@ class Go2Driver(BaseDriver):
         return f"Navigation success: arrived near {target_ref.get('label', 'target')}."
 
     def _target_navigation(self, params: dict[str, Any]) -> str:
-        robot_id = params.get("robot_id", self.ROBOT_ID)
+        robot_id = params.get("robot_id", self.robot_id)
         target_label = str(params.get("target_label", "")).strip()
         if not target_label:
             self._update_nav_state(
@@ -247,7 +265,7 @@ class Go2Driver(BaseDriver):
         return f"Target navigation failed for {target_label}: {status.get('message', 'unknown error')}."
 
     def _localize(self, params: dict[str, Any]) -> str:
-        robot_id = params.get("robot_id", self.ROBOT_ID)
+        robot_id = params.get("robot_id", self.robot_id)
         state = self._robot_state(robot_id)
         state["robot_pose"]["stamp"] = self._stamp()
         self._update_nav_state(
@@ -287,7 +305,7 @@ class Go2Driver(BaseDriver):
         }
 
     def _robot_state(self, robot_id: str | None) -> dict[str, Any]:
-        robot_id = robot_id or self.ROBOT_ID
+        robot_id = robot_id or self.robot_id
         robots = self._runtime_state.setdefault("robots", {})
         if robot_id not in robots:
             robots[robot_id] = self._make_robot_state()
@@ -337,4 +355,4 @@ class Go2Driver(BaseDriver):
 
     @staticmethod
     def _stamp() -> str:
-        return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")

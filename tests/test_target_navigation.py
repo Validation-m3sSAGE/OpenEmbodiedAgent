@@ -5,11 +5,16 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
-from OEA.agent.tools.embodied import EmbodiedActionTool
-from OEA.agent.tools.target_navigation import TargetNavigationTool
+from PhyAgentOS.agent.tools.embodied import EmbodiedActionTool
+from PhyAgentOS.agent.tools.target_navigation import TargetNavigationTool
 from hal.hal_watchdog import _poll_once
 from hal.drivers import load_driver
+from hal.drivers.go2_navigation_bridge import Go2BridgeConfig, VideoStateOccupancyReceiver
+import hal.navigation.target_navigation_backend as target_navigation_backend_module
+from hal.navigation import NavigationEngine, TargetNavigationBackend
+from hal.navigation.bridge import SimulatedRobotBridge
 from hal.simulation.scene_io import load_environment_doc, save_environment_doc
 
 _FENCE_OPEN = "```json"
@@ -226,3 +231,122 @@ def test_watchdog_target_navigation_preserves_environment_shape(tmp_path: Path) 
     assert "scene_graph" in updated
     assert "objects" in updated
     assert updated["robots"]["go2_edu_001"]["nav_state"]["status"] in {"arrived", "blocked"}
+
+
+def test_go2_driver_uses_configured_robot_id(tmp_path: Path) -> None:
+    _write_workspace_files(tmp_path)
+    custom_robot_id = "go2_lab_b"
+    env = load_environment_doc(tmp_path / "ENVIRONMENT.md")
+    env["robots"][custom_robot_id] = env["robots"].pop("go2_edu_001")
+    save_environment_doc(tmp_path / "ENVIRONMENT.md", env)
+
+    action_file = _write_action(
+        tmp_path,
+        {
+            "action_type": "target_navigation",
+            "parameters": {
+                "robot_id": custom_robot_id,
+                "target_label": "cup",
+                "detection_hint": {"rgb_range": [[180, 0, 0], [255, 60, 60]]},
+                "success_distance_m": 3.5,
+                "timeout_s": 2,
+            },
+            "status": "pending",
+        },
+    )
+
+    with load_driver("go2_edu", gui=False, target_navigation_backend="mock", robot_id=custom_robot_id) as driver:
+        driver.connect()
+        driver._target_navigation_backend._bridge.obstacle_cells = set()
+        _enable_mock_depth_success(driver._target_navigation_backend._bridge)
+        _poll_once(driver, action_file, tmp_path / "ENVIRONMENT.md")
+
+    updated = load_environment_doc(tmp_path / "ENVIRONMENT.md")
+    assert custom_robot_id in updated["robots"]
+    assert updated["robots"][custom_robot_id]["nav_state"]["target_label"] == "cup"
+
+
+def test_navigation_engine_max_steps_stops_active_horizon() -> None:
+    bridge = SimulatedRobotBridge()
+    stop_calls = []
+    original_stop = bridge.stop
+
+    def _recording_stop():
+        stop_calls.append(True)
+        return original_stop()
+
+    bridge.stop = _recording_stop
+    engine = NavigationEngine(bridge)
+    engine.set_target("cup", detection_hint={"rgb_range": [[180, 0, 0], [255, 60, 60]]})
+    engine.config.max_steps = 0
+
+    result = engine.run_until_done(timeout_s=0.2, step_delay_s=0.0)
+
+    assert result["phase"] == "blocked"
+    assert result["active_horizon_target"] is None
+    assert any(item["event"] == "max_steps_blocked" for item in result["history_tail"])
+    assert stop_calls
+
+
+def test_navigation_engine_resets_overrides_between_targets() -> None:
+    bridge = SimulatedRobotBridge()
+    engine = NavigationEngine(bridge)
+
+    engine.set_target("cup", success_distance_m=2.5, control_mode="blocking")
+    assert engine.config.success_distance_m == 2.5
+    assert engine.config.control_mode == "blocking"
+
+    engine.set_target("cup")
+
+    assert engine.config.success_distance_m == pytest.approx(0.8)
+    assert engine.config.control_mode == "preemptive"
+
+
+def test_target_navigation_backend_real_connect_requires_ready(monkeypatch) -> None:
+    class _FakeBridge:
+        def __init__(self):
+            self.stopped = False
+            self.motion_server = None
+            self.receiver = None
+
+        def wait_until_ready(self):
+            return {"ok": False, "reason": "bridge_not_ready"}
+
+        def stop_remote_services(self):
+            self.stopped = True
+            return {"ok": True}
+
+    fake_bridge = _FakeBridge()
+    monkeypatch.setattr(target_navigation_backend_module, "Go2MoveBridge", lambda cfg: fake_bridge)
+
+    backend = TargetNavigationBackend(backend_mode="real")
+    connected = backend.connect()
+
+    assert connected is False
+    assert fake_bridge.stopped is True
+    assert backend._bridge is None
+
+
+def test_target_navigation_backend_run_navigation_returns_not_ready_status(monkeypatch) -> None:
+    backend = TargetNavigationBackend(backend_mode="mock")
+
+    def _fake_connect():
+        backend._last_status = {"phase": "blocked", "message": "bridge_not_ready"}
+        return False
+
+    monkeypatch.setattr(backend, "connect", _fake_connect)
+
+    result = backend.run_navigation({"target_label": "cup"})
+
+    assert result["phase"] == "blocked"
+    assert result["message"] == "bridge_not_ready"
+
+
+def test_video_receiver_ignores_malformed_payloads() -> None:
+    receiver = VideoStateOccupancyReceiver(Go2BridgeConfig())
+
+    receiver._handle_state_payload(b"bad")
+    receiver._handle_occupancy_payload(b"\x00\x00\x00\x01\x00\x00\x00\x02\x01")
+
+    latest = receiver.get_latest()
+    assert latest.timestamp == 0.0
