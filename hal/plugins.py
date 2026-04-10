@@ -8,7 +8,10 @@ import json
 import os
 from pathlib import Path
 import sys
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 from typing import Any
 
 _PLUGIN_HOME_ENV = "PhyAgentOS_PLUGIN_HOME"
