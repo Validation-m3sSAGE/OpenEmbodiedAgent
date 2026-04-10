@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="docs/imgs/logo_en.png" alt="Physical Agent Operating System" width="700">
-  <h1>Physical Agent Operation System</h1>
+  <img src="docs/imgs/PhyAgentOS.png" alt="PhyAgentOS" width="500">
+  <h1>Physical Agent Operation System (PhyAgentOS)</h1>
   <p><b>A Decoupled Protocol-Based Framework for Self-Evolving and Cross-Embodiment Agents</b></p>
   <p>
     <a href="./README.md">English</a> | <a href="./README_zh.md">中文</a>
@@ -73,8 +73,8 @@ PhyAgentOS's core is a local workspace where software and hardware operate as in
 
 ### 1. Install Dependencies
 ```bash
-git clone https://github.com/PhyAgentOS/PhyAgentOS.git
-cd PhyAgentOS
+git clone https://github.com/your-repo/Physical Agent Operating System.git
+cd Physical Agent Operating System
 pip install -e .
 # Install simulation dependencies (e.g., watchdog)
 pip install watchdog
@@ -119,13 +119,7 @@ In the `paos agent` CLI, input:
 
 You will see the action execution in the simulation logs in Terminal 1, and receive completion confirmation from the Agent in Terminal 2.
 
-To auto-onboard a new robot into `PhyAgentOS-rekep-real-plugin` with the built-in skill:
-
-1. Place the robot SDK under `../PhyAgentOS-rekep-real-plugin/runtime/third_party/<robot_slug>/` or `~/.PhyAgentOS/plugins/repos/rekep_real/runtime/third_party/<robot_slug>/`.
-2. Tell the agent: `Help me onboard a new robot <robot name> into ReKep`.
-3. The skill will inspect the SDK, draft the adapter/factory changes, and return deployment and startup instructions. Full reference: [docs/user_development_guide/PLUGIN_DEVELOPMENT_GUIDE.md](docs/user_development_guide/PLUGIN_DEVELOPMENT_GUIDE.md).
-
-### 5. More Information
+5. More Information
 
 [User Manual](docs/user_manual/README.md): Operations guide for end users, integrators, and demo operators.
 
@@ -137,7 +131,7 @@ To auto-onboard a new robot into `PhyAgentOS-rekep-real-plugin` with the built-i
 Physical Agent Operating System/
 ├── PhyAgentOS/                # Track A: Software Brain Core
 │   ├── agent/              # Agent Logic (Planner, Critic)
-│   ├── templates/          # Workspace Markdown Templates  
+│   ├── templates/          # Workspace Markdown Templates
 │   └── ...
 ├── hal/                    # Track B: Hardware HAL & Simulation
 │   ├── hal_watchdog.py     # Hardware Watchdog Daemon

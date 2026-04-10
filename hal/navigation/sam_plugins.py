@@ -28,8 +28,8 @@ class SAMWorkerSpec:
         }
 
 
-def _oea_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+def _navigation_sdk_root() -> Path:
+    return Path(__file__).resolve().parents[3] / "navigation_sdk"
 
 
 def _builtin_sam3_worker_spec(config: dict[str, Any] | None = None) -> SAMWorkerSpec:
@@ -39,7 +39,7 @@ def _builtin_sam3_worker_spec(config: dict[str, Any] | None = None) -> SAMWorker
             config.get("worker_path")
             or os.environ.get("OEA_TARGET_NAV_SAM_WORKER", "")
             or os.environ.get("NAV_SAM3_WORKER", "")
-            or (_oea_root() / "hal" / "perception" / "mock_sam_worker.py")
+            or (_navigation_sdk_root() / "navigation_mcp" / "sam3_worker.py")
         )
     ).expanduser().resolve()
 
@@ -51,7 +51,6 @@ def _builtin_sam3_worker_spec(config: dict[str, Any] | None = None) -> SAMWorker
     ).strip()
 
     env = dict(os.environ)
-    env.setdefault("OEA_TARGET_NAV_SAM_MODE", "mock")
     mapping = {
         "repo_path": "NAV_SAM3_REPO",
         "checkpoint_path": "NAV_SAM3_CKPT",

@@ -4,6 +4,12 @@ hal/hal_watchdog.py
 
 HAL Watchdog — polls ACTION.md for commands, dispatches them to the
 active driver, and writes updated state back to ENVIRONMENT.md.
+
+Queue-aware version: reads the action queue via ``hal.action_queue``,
+marks entries as *running* before execution, then writes *completed* or
+*failed* with the result message.  Completed entries are purged after a
+configurable number of poll cycles so the LLM can still read the result
+before it disappears.
 """
 
 from __future__ import annotations
@@ -13,46 +19,25 @@ import json
 import shutil
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
+from hal.action_queue import (
+    pop_next_pending,
+    purge_completed,
+    update_action_status,
+)
 from hal.simulation.scene_io import (
     load_environment_doc,
     load_scene_from_md,
     merge_environment_doc,
     save_environment_doc,
 )
-from PhyAgentOS.utils.action_queue import (
-    dump_action_document,
-    first_pending_action,
-    infer_terminal_status,
-    normalize_action_document,
-    parse_action_markdown,
-)
 
 
 def _log(msg: str) -> None:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[HAL Watchdog {ts}] {msg}", flush=True)
-
-
-def parse_action(content: str) -> dict | None:
-    """Extract the first pending action from ACTION.md content."""
-    payload = parse_action_markdown(content)
-    if payload is None:
-        return None
-    document = normalize_action_document(payload)
-    if document is None:
-        return None
-    pending = first_pending_action(document)
-    if pending is None:
-        return None
-    _, action = pending
-    return action
-
-
-def _load_scene(path: Path) -> dict[str, dict]:
-    return load_scene_from_md(path)
 
 
 def load_driver_config(path: Path | None) -> dict[str, object]:
@@ -70,6 +55,10 @@ def load_driver_config(path: Path | None) -> dict[str, object]:
     return data
 
 
+def _load_scene(path: Path) -> dict[str, dict]:
+    return load_scene_from_md(path)
+
+
 def _save_scene(driver, path: Path, scene: dict[str, dict], registry=None) -> None:
     existing = load_environment_doc(path)
     runtime_state = {}
@@ -83,7 +72,7 @@ def _save_scene(driver, path: Path, scene: dict[str, dict], registry=None) -> No
         scene_graph=runtime_state.get("scene_graph"),
         map_data=runtime_state.get("map"),
         tf_data=runtime_state.get("tf"),
-        updated_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        updated_at=datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
     )
     save_environment_doc(path, updated)
     if registry is not None and getattr(registry, "is_fleet", False):
@@ -143,8 +132,17 @@ def watch_loop(
     driver_kwargs: dict[str, object] | None = None,
     env_file: Path | None = None,
     registry=None,
+    purge_after_cycles: int = 5,
 ) -> None:
-    """Load a driver, install its profile, then poll ACTION.md forever."""
+    """Load a driver, install its profile, then poll ACTION.md forever.
+
+    Parameters
+    ----------
+    purge_after_cycles:
+        Number of poll cycles to keep completed/failed entries in the queue
+        before purging them.  This gives the waiting AgentLoop time to read
+        the result.  Default is 5 cycles (≈ 5 × poll_interval seconds).
+    """
     from hal.drivers import load_driver
 
     env_file = env_file or (workspace / "ENVIRONMENT.md")
@@ -169,54 +167,88 @@ def watch_loop(
         _log("Watching ACTION.md ... Ctrl+C to stop.\n")
 
         action_file = workspace / "ACTION.md"
+        # Track how many cycles each completed/failed entry has been sitting
+        _completed_age: dict[str, int] = {}
+
         try:
             while True:
-                _poll_once(driver, action_file, env_file, registry=registry)
+                _poll_once(
+                    driver,
+                    action_file,
+                    env_file,
+                    registry=registry,
+                    completed_age=_completed_age,
+                    purge_after_cycles=purge_after_cycles,
+                )
                 time.sleep(poll_interval)
         except KeyboardInterrupt:
             _log("Shutdown.")
 
 
-def _poll_once(driver, action_file: Path, env_file: Path, registry=None) -> None:
-    """Single poll: refresh connection state, then execute pending ACTION.md."""
+def _poll_once(
+    driver,
+    action_file: Path,
+    env_file: Path,
+    *,
+    registry=None,
+    completed_age: dict[str, int],
+    purge_after_cycles: int,
+) -> None:
+    """Single poll: refresh health, execute one pending action, age completed entries."""
     _refresh_health(driver, env_file, registry=registry)
 
-    if not action_file.exists():
-        return
-    content = action_file.read_text(encoding="utf-8").strip()
-    if not content:
+    # ── age tracking & purge ──────────────────────────────────────────────────
+    from hal.action_queue import read_queue
+    queue = read_queue(action_file)
+    current_ids = {e["action_id"] for e in queue}
+
+    # Remove stale tracking entries for actions no longer in the file
+    for aid in list(completed_age.keys()):
+        if aid not in current_ids:
+            del completed_age[aid]
+
+    # Increment age counter for completed/failed entries
+    for entry in queue:
+        aid = entry["action_id"]
+        if entry.get("status") in ("completed", "failed"):
+            completed_age[aid] = completed_age.get(aid, 0) + 1
+
+    # Purge entries that have been sitting long enough
+    aged_out = {aid for aid, age in completed_age.items() if age >= purge_after_cycles}
+    if aged_out:
+        from hal.action_queue import _file_lock, _read_queue_raw, _write_queue_raw
+        lock_path = action_file.with_suffix(".lock")
+        with _file_lock(lock_path):
+            q = _read_queue_raw(action_file)
+            q = [e for e in q if e.get("action_id") not in aged_out]
+            _write_queue_raw(action_file, q)
+        for aid in aged_out:
+            del completed_age[aid]
+        _log(f"Purged {len(aged_out)} completed/failed action(s) from queue.")
+
+    # ── claim and execute one pending action ──────────────────────────────────
+    action = pop_next_pending(action_file)
+    if action is None:
         return
 
-    payload = parse_action_markdown(content)
-    if payload is None:
-        _log("ACTION.md has content but no valid JSON - skipping.")
-        return
-    document = normalize_action_document(payload)
-    if document is None:
-        _log("ACTION.md contains unreadable action data - skipping.")
-        return
-    pending = first_pending_action(document)
-    if pending is None:
-        _log("ACTION.md has no pending actions - skipping.")
-        return
-    action_index, action = pending
+    action_id   = action["action_id"]
+    action_type = action["action_type"]
+    params      = action.get("parameters", {})
+    _log(f"Executing action_id={action_id!r}  type={action_type!r}  params={params}")
 
-    action_type = action.get("action_type", "unknown")
-    params = action.get("parameters", {})
-    _log(f"Action: {action_type!r}  params={params}")
+    time.sleep(0.3)  # brief settle before hardware call
 
-    time.sleep(0.3)
-
-    result = driver.execute_action(action_type, params)
-    _log(f"Result: {result}")
+    try:
+        result = driver.execute_action(action_type, params)
+        _log(f"Result: {result}")
+        update_action_status(action_file, action_id, "completed", result_msg=result)
+    except Exception as exc:  # noqa: BLE001
+        err_msg = f"Driver raised exception: {exc}"
+        _log(f"ERROR: {err_msg}")
+        update_action_status(action_file, action_id, "failed", result_msg=err_msg)
 
     _save_scene(driver, env_file, driver.get_scene(), registry=registry)
-    _log("ENVIRONMENT.md updated.")
-
-    document["actions"][action_index]["status"] = infer_terminal_status(result)
-    document["actions"][action_index]["result"] = result
-    action_file.write_text(dump_action_document(document), encoding="utf-8")
-    _log("ACTION.md updated.\n")
+    _log("ENVIRONMENT.md updated.\n")
 
 
 def main() -> None:
@@ -244,6 +276,12 @@ def main() -> None:
         "--driver-config",
         default=None,
         help="Path to a JSON object file that will be passed through to the selected driver as keyword args.",
+    )
+    parser.add_argument(
+        "--purge-after",
+        type=int,
+        default=5,
+        help="Number of poll cycles to keep completed/failed entries before purging (default: 5).",
     )
     args = parser.parse_args()
 
@@ -273,6 +311,7 @@ def main() -> None:
         driver_kwargs=driver_kwargs,
         env_file=env_file,
         registry=registry,
+        purge_after_cycles=args.purge_after,
     )
 
 

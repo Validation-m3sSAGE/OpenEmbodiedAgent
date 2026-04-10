@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from hal.ros2.messages import RobotPose
 
@@ -25,5 +25,5 @@ class OdomAdapter:
             y=y,
             z=z,
             yaw=yaw,
-            stamp=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            stamp=datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
         )

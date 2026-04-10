@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -455,4 +455,4 @@ class XLerobot2WheelsRemoteDriver(BaseDriver):
 
     @staticmethod
     def _stamp() -> str:
-        return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
