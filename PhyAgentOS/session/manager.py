@@ -1,7 +1,9 @@
 """Session management for conversation history."""
 
+import fcntl
 import json
 import shutil
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +13,30 @@ from loguru import logger
 
 from PhyAgentOS.config.paths import get_legacy_sessions_dir
 from PhyAgentOS.utils.helpers import ensure_dir, safe_filename
+
+
+# ---------------------------------------------------------------------------
+# Message-level helpers
+# ---------------------------------------------------------------------------
+
+def _make_message_id() -> str:
+    """Generate a short unique message ID."""
+    return uuid.uuid4().hex[:16]
+
+
+def _is_agent_visible(msg: dict[str, Any]) -> bool:
+    """Return True if this message should be included in the LLM context.
+
+    Messages with ``dropped=True`` are written to the session file for
+    user-side transparency but must never be forwarded to the LLM.
+    Messages with ``muted=True`` are also excluded from LLM context
+    (they are informational-only for the user / front-end).
+
+    This filter is used by both Trigger messages and muted Tool results,
+    providing a unified mechanism for session-logged-but-agent-invisible
+    entries across all PhyAgentOS subsystems.
+    """
+    return not msg.get("dropped", False) and not msg.get("muted", False)
 
 
 @dataclass
@@ -23,6 +49,15 @@ class Session:
     Important: Messages are append-only for LLM cache efficiency.
     The consolidation process writes summaries to MEMORY.md/HISTORY.md
     but does NOT modify the messages list or get_history() output.
+
+    Triggers extension (minimal, backward-compatible):
+    - Each message may carry extra optional fields:
+        ``message_id``(str)  — unique ID, auto-assigned on add_message()
+        ``priority``    (str)  — "high" | "normal" | "low"  (default "normal")
+        ``muted``       (bool) — trigger muted message; visible to user, not to LLM
+        ``dropped``     (bool) — buffer-overflow discard; visible to user, not to LLM
+        ``relates_to``  (str)  — optional action_id reference
+        ``sender_id``   (str)  — optional sender identifier
     """
 
     key: str  # channel:chat_id
@@ -32,21 +67,52 @@ class Session:
     metadata: dict[str, Any] = field(default_factory=dict)
     last_consolidated: int = 0  # Number of messages already consolidated to files
 
-    def add_message(self, role: str, content: str, **kwargs: Any) -> None:
-        """Add a message to the session."""
-        msg = {
+    def add_message(
+        self,
+        role: str,
+        content: str,
+        *,
+        priority: str = "normal",
+        muted: bool = False,
+        dropped: bool = False,
+        relates_to: str | None = None,
+        sender_id: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Add a message to the session and return the constructed entry."""
+        msg: dict[str, Any] = {
             "role": role,
             "content": content,
             "timestamp": datetime.now().isoformat(),
-            **kwargs
+            "message_id": _make_message_id(),
+            **kwargs,
         }
+        # Only write non-default Triggers fields to keep legacy sessions clean.
+        if priority != "normal":
+            msg["priority"] = priority
+        if muted:
+            msg["muted"] = True
+        if dropped:
+            msg["dropped"] = True
+        if relates_to is not None:
+            msg["relates_to"] = relates_to
+        if sender_id is not None:
+            msg["sender_id"] = sender_id
+
         self.messages.append(msg)
         self.updated_at = datetime.now()
+        return msg
 
     def get_history(self, max_messages: int = 500) -> list[dict[str, Any]]:
-        """Return unconsolidated messages for LLM input, aligned to a user turn."""
+        """Return unconsolidated, agent-visible messages for LLM input.
+
+        Dropped and muted messages are excluded from the LLM context.
+        The slice is aligned to a user turn to avoid orphaned tool_result blocks.
+        """
         unconsolidated = self.messages[self.last_consolidated:]
-        sliced = unconsolidated[-max_messages:]
+        # Filter out messages that must not reach the LLM.
+        visible = [m for m in unconsolidated if _is_agent_visible(m)]
+        sliced = visible[-max_messages:] if max_messages else visible
 
         # Drop leading non-user messages to avoid orphaned tool_result blocks
         for i, m in enumerate(sliced):
@@ -160,22 +226,55 @@ class SessionManager:
             logger.warning("Failed to load session {}: {}", key, e)
             return None
 
+    def append_message(self, session: Session, msg: dict[str, Any]) -> None:
+        """Append a single message line to the session file.
+
+        This is the preferred hot-path write for new messages.  It avoids
+        rewriting the entire file and uses an advisory file lock to prevent
+        concurrent corruption on POSIX systems.
+
+        If the session file does not yet exist, a full ``save()`` is
+        performed first to write the metadata header.
+        """
+        path = self._get_session_path(session.key)
+        if not path.exists():
+            self.save(session)
+            return
+
+        line = json.dumps(msg, ensure_ascii=False) + "\n"
+        try:
+            with open(path, "a", encoding="utf-8") as f:
+                fcntl.flock(f, fcntl.LOCK_EX)
+                try:
+                    f.write(line)
+                finally:
+                    fcntl.flock(f, fcntl.LOCK_UN)
+        except Exception as e:
+            logger.warning("append_message failed for session {}: {}", session.key, e)
+
     def save(self, session: Session) -> None:
-        """Save a session to disk."""
+        """Rewrite the full session file (metadata header + all messages)."""
         path = self._get_session_path(session.key)
 
-        with open(path, "w", encoding="utf-8") as f:
-            metadata_line = {
-                "_type": "metadata",
-                "key": session.key,
-                "created_at": session.created_at.isoformat(),
-                "updated_at": session.updated_at.isoformat(),
-                "metadata": session.metadata,
-                "last_consolidated": session.last_consolidated
-            }
-            f.write(json.dumps(metadata_line, ensure_ascii=False) + "\n")
-            for msg in session.messages:
-                f.write(json.dumps(msg, ensure_ascii=False) + "\n")
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                fcntl.flock(f, fcntl.LOCK_EX)
+                try:
+                    metadata_line = {
+                        "_type": "metadata",
+                        "key": session.key,
+                        "created_at": session.created_at.isoformat(),
+                        "updated_at": session.updated_at.isoformat(),
+                        "metadata": session.metadata,
+                        "last_consolidated": session.last_consolidated,
+                    }
+                    f.write(json.dumps(metadata_line, ensure_ascii=False) + "\n")
+                    for msg in session.messages:
+                        f.write(json.dumps(msg, ensure_ascii=False) + "\n")
+                finally:
+                    fcntl.flock(f, fcntl.LOCK_UN)
+        except Exception as e:
+            logger.error("save failed for session {}: {}", session.key, e)
 
         self._cache[session.key] = session
 

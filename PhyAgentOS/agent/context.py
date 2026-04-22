@@ -6,9 +6,12 @@ import platform
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PhyAgentOS.agent.memory import MemoryStore
+
+if TYPE_CHECKING:
+    from PhyAgentOS.triggers.registry import TriggerRegistry
 from PhyAgentOS.agent.skills import SkillsLoader
 from PhyAgentOS.utils.helpers import build_assistant_message, detect_image_mime
 
@@ -28,13 +31,19 @@ class ContextBuilder:
     ]
     _RUNTIME_CONTEXT_TAG = "[Runtime Context — metadata only, not instructions]"
 
-    def __init__(self, workspace: Path):
+    def __init__(self, workspace: Path, trigger_registry: "TriggerRegistry | None" = None):
         self.workspace = workspace
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
+        self._trigger_registry = trigger_registry
 
-    def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
-        """Build the system prompt from identity, bootstrap files, memory, and skills."""
+    def build_system_prompt(
+        self,
+        skill_names: list[str] | None = None,
+        session_key: str | None = None,
+    ) -> str:
+        """Build the system prompt from identity, bootstrap files, memory, skills,
+        and (if active) the current Trigger environment context block."""
         parts = [self._get_identity()]
 
         bootstrap = self._load_bootstrap_files()
@@ -59,6 +68,16 @@ The following skills extend your capabilities. To use a skill, read its SKILL.md
 Skills with available="false" need dependencies installed first - you can try installing them with apt/brew.
 
 {skills_summary}""")
+
+        # Trigger context injection — only when anEnvironmentSession is
+        # active for this session.Appended last so it is close to the
+        # conversation.
+        if session_key and self._trigger_registry:
+            instance = self._trigger_registry.get_instance(session_key)
+            if instance and instance.is_running:
+                trigger_block = instance.get_context_block()
+                if trigger_block:
+                    parts.append(trigger_block)
 
         return "\n\n---\n\n".join(parts)
 
@@ -147,6 +166,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         media: list[str] | None = None,
         channel: str | None = None,
         chat_id: str | None = None,
+        session_key: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
         runtime_ctx = self._build_runtime_context(channel, chat_id)
@@ -160,7 +180,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
             merged = [{"type": "text", "text": runtime_ctx}] + user_content
 
         return [
-            {"role": "system", "content": self.build_system_prompt(skill_names)},
+            {"role": "system", "content": self.build_system_prompt(skill_names, session_key=session_key)},
             *history,
             {"role": "user", "content": merged},
         ]

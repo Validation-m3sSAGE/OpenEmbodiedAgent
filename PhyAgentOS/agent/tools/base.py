@@ -21,6 +21,11 @@ class Tool(ABC):
         "object": dict,
     }
 
+    # Whether the last execute() produced a muted result.
+    # Tools can set self._last_muted = True in execute() to mark
+    # the result as session-logged but excluded from future LLM context.
+    _last_muted: bool = False
+
     @property
     @abstractmethod
     def name(self) -> str:

@@ -362,6 +362,16 @@ class ExecToolConfig(Base):
     path_append: str = ""
 
 
+class TriggersConfig(Base):
+    """Triggers protocol configuration.
+
+    Controls the per-session message buffer used by the Triggers layer.
+    """
+
+    buffer_capacity: int = 256
+    buffer_soft_watermark: float = 0.80
+
+
 class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
 
@@ -392,6 +402,7 @@ class Config(BaseSettings):
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
     embodiments: EmbodimentsConfig = Field(default_factory=EmbodimentsConfig)
+    triggers: TriggersConfig = Field(default_factory=TriggersConfig)
 
     @property
     def is_fleet_mode(self) -> bool:
